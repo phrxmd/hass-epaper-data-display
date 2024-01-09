@@ -1,0 +1,510 @@
+# epaper-data-display-small-blueprint.yaml
+# 
+# Home Assistant blueprint for automations to us cheap 1.54" ePaper price tags as data displays
+#
+# Requires Jonas Niesner's OpenEPaperLink integration: https://github.com/jonasniesner/open_epaper_link_homeassistant
+# Currently not very elegant due to limitations of the integration
+
+blueprint:
+  name: OpenEPaperLink 1.54-inch Sensor Data Display
+  description: 'Display sensor data and graphs on 1.54" ePaper display tags.
+    
+    
+    This blueprint is meant for use with the 
+    [OpenEPaperLink integration](https://github.com/jonasniesner/open_epaper_link_homeassistant)
+    by Jonas Niesner. With this, you can set up automations to use the common 
+    1.54" ST‐GR16000 price tags to display various sensor data.
+    
+    
+    The display can show up to six values at the same time, in the following
+    arrangement:
+    
+    
+    * Two numerical sensor values at the top. By default these are shown in black.
+    Each of them can be displayed in red if it is above and/or below a certain threshold.
+    
+    * Two line graphs in the middle and bottom. Each graph shows a black line 
+    with the values of a sensor over a past time period (by default 24h). 
+    In addition, the graph can display a thin red line with the values from a
+    second sensor over the same time period.
+
+    '
+  domain: automation
+  
+  input:
+    tag_entity:
+      name: Target display
+      description: >
+        Data will be displayed on this ePaper tag. The blueprint assumes a
+        1.54" tag with 152x152 pixels.
+      selector:
+        # Unfortunately we cannot use a `target` selector here, because
+        # the OpenEPaperLink integration throws an error when calling `drawcustom`
+        # with a `device_id`. 
+        entity:
+          multiple: false
+    sensor1:
+      name: Top left - Sensor
+      description: Values from this sensor will be displayed at the top left.
+      selector:
+        entity:
+    field1_icon:
+      name: Top left - Icon
+      description: This icon will be displayed next to the data at the top left.
+      selector:
+        icon:
+    field1_warn_above:
+      name: Top left - Upper warning threshold
+      description: Values above this number will be displayed in red.
+      default: 100
+      selector:
+        number:
+          min: -100000000000.0
+          max:  100000000000.0
+          mode: box
+          step: any
+    field1_warn_below:
+      name: Top left - Lower warning threshold
+      description: Values below this number will be displayed in red.
+      default: -100
+      selector:
+        number:
+          min: -100000000000.0
+          max:  100000000000.0
+          mode: box
+          step: any
+    sensor2:
+      name: Top right - Sensor
+      description: Values from this sensor will be displayed at the top right.
+      selector:
+        entity:
+    field2_icon:
+      name: Top right - Icon
+      description: This icon will be displayed next to the data at the top right.
+      selector:
+        icon:
+    field2_warn_above:
+      name: Top right - Upper warning threshold
+      description: Values above this number will be displayed in red.
+      default: 100
+      selector:
+        number:
+          min: -100000000000.0
+          max:  100000000000.0
+          mode: box
+          step: any
+    field2_warn_below:
+      name: Top right - Lower warning threshold
+      description: Values below this number will be displayed in red.
+      default: -100
+      selector:
+        number:
+          min: -100000000000.0
+          max:  100000000000.0
+          mode: box
+          step: any
+    sensor3:
+      name: Middle graph - Sensor
+      description: Values from this sensor will be displayed as a black line in the middle graph.
+      selector:
+        entity:
+    field3_icon:
+      name: Middle graph - Icon
+      description: This icon will be displayed next to the middle graph.
+      selector:
+        icon:
+    field3_duration:
+      name: Middle graph - Duration
+      description: >
+        Total duration (in seconds) of the data shown on the middle graph.
+        The default is 86400 seconds (24 hours).
+      default: 86400
+      selector:
+        number:
+          min: 60
+          max: 31622400 # 1 year (366 days)
+          mode: box
+          step: 1
+          unit_of_measurement: seconds
+    sensor4:
+      name: Middle graph - Second sensor
+      description: If a sensor is selected here, values will be displayed as a thin red line in the middle graph.
+      default: ""
+      selector:
+        entity:
+    sensor5:
+      name: Bottom graph - Sensor
+      description: Values from this sensor will be displayed as a black line in the bottom graph.
+      selector:
+        entity:
+    field4_icon:
+      name: Bottom graph - Icon
+      description: This icon will be displayed next to the bottom graph.
+      selector:
+        icon:
+    field4_duration:
+      name: Bottom graph - Duration
+      description: >
+        Total duration (in seconds) of the data shown on the bottom graph.
+        The default is 86400 seconds (24 hours).
+      default: 86400
+      selector:
+        number:
+          min: 60
+          max: 31622400 # 1 year (366 days)
+          mode: box
+          step: 1
+          unit_of_measurement: seconds
+    sensor6:
+      name: Bottom graph - Second sensor
+      description: If a sensor is selected here, values will be displayed as a thin red line in the bottom graph.
+      default: ""
+      selector:
+        entity:
+    font_data:
+      name: Font - Data values
+      description: > 
+        This font will be used to display the numerical data values. 
+        OpenEPaperLink has `ppb.ttf` and `rbm.ttf` built in.
+        If you want custom fonts, upload them to `/media` on HA, then specify
+        e.g. `/media/Bahnschrift.ttf`. 
+      default: ppb.ttf
+    font_unit:
+      name: Font - Units
+      description: > 
+        This font will be used to display the units.
+      default: ppb.ttf
+    font_legend:
+      name: Font - Graph legend
+      description: >
+        This font will be used to display the small legend next to the graphs.
+      default: ppb.ttf
+    frame_color:
+      name: Frame color
+      description: Optionally draw a red or black frame around each display.
+      default: white
+      selector:
+        select:
+          options:
+            - white
+            - red
+            - black
+          mode: dropdown
+    
+trigger:
+  - platform: time_pattern
+    minutes: "45"
+condition: []
+
+variables:
+  tag: !input tag_entity
+  field1_icon: !input field1_icon
+  sensor1: !input sensor1
+  field1_warn_above: !input field1_warn_above
+  field1_warn_below: !input field1_warn_below
+  field2_icon: !input field2_icon
+  sensor2: !input sensor2
+  field2_warn_above: !input field2_warn_above
+  field2_warn_below: !input field2_warn_below
+  field3_icon: !input field3_icon
+  sensor3: !input sensor3
+  field3_duration: !input field3_duration
+  sensor4: !input sensor4
+  field4_icon: !input field4_icon
+  sensor5: !input sensor5
+  field4_duration: !input field4_duration
+  sensor6: !input sensor6
+  font_data: !input font_data
+  font_unit: !input font_unit
+  font_legend: !input font_legend
+  frame_color: !input frame_color
+  # Some processing to get sensor data and coloring 
+  field1_value: "{{states(''''~sensor1)}}"
+  field1_unit: "{{state_attr(''''~sensor1,'unit_of_measurement')}}"
+  field2_value: "{{states(''''~sensor2)}}"
+  field2_unit: "{{state_attr(''''~sensor2,'unit_of_measurement')}}"
+  field1_color: >
+    {% if is_number(float(field1_value,"")) and ((is_number(float(field1_warn_above,"")) and (float(field1_value) > float(field1_warn_above))) 
+                                              or (is_number(float(field1_warn_below,"")) and (float(field1_value) < float(field1_warn_below)))) -%}
+    red
+    {%- else -%} 
+    black
+    {%- endif %}  
+  field2_color: >
+    {% if is_number(float(field2_value,"")) and ((is_number(float(field2_warn_above,"")) and (float(field2_value) > float(field2_warn_above))) 
+                                              or (is_number(float(field2_warn_below,"")) and (float(field2_value) < float(field2_warn_below)))) -%}
+    red
+    {%- else -%} 
+    black
+    {%- endif %}  
+  building_blocks:
+    - &frame
+      type: rectangle
+      outline: !input frame_color
+      fill: white
+      width: 1
+    - &icon
+      type: icon
+      size: 32
+      color: black
+    - &value
+      type: text
+      font: !input font_data
+      size: 24
+      color: black
+      anchor: mm
+    - &unit
+      type: text
+      font: !input font_unit
+      y_padding: 14
+      size: 18
+      color: black
+      anchor: mm
+    - &plot
+      type: plot
+      font: !input font_legend
+      size: 12
+      ylegend:
+        position: right
+        color: red
+      yaxis: null
+    # Top left value
+    - &frame1
+      <<: *frame
+      x_start: 0
+      y_start: 0
+      x_end: 75
+      y_end: 49
+    - &icon1
+      <<: *icon
+      color: "{{ field1_color }}"
+      value: !input field1_icon
+      x: 1
+      "y": 8
+    - &value1
+      <<: *value
+      color: "{{ field1_color }}"
+      value: "{{ field1_value }}"
+      x: 52
+      "y": 14
+    - &unit1
+      <<: *unit
+      color: "{{ field1_color }}"
+      value: "{{ field1_unit }}"
+      x: 52
+    # Top right value
+    - &frame2
+      <<: *frame
+      x_start: 77
+      y_start: 0
+      x_end: 151
+      y_end: 49
+    - &icon2
+      <<: *icon
+      color: "{{ field2_color }}"
+      value: !input field2_icon
+      x: 77
+      "y": 8
+    - &value2
+      <<: *value
+      color: "{{ field2_color }}"
+      value: "{{ field2_value }}"
+      x: 128
+      "y": 14
+    - &unit2
+      <<: *unit
+      color: "{{ field2_color }}"
+      value: "{{ field2_unit }}"
+      x: 128
+    # Middle graph
+    - &frame3
+      <<: *frame
+      x_start: 0
+      y_start: 51
+      x_end: 151
+      y_end: 100
+    - &icon3
+      <<: *icon
+      x: 1
+      "y": 59
+      value: !input field3_icon
+    # Version with one line
+    - &plot3
+      <<: *plot
+      x_start: 34
+      y_start: 52
+      x_end: 149
+      y_end: 99
+      duration: !input field3_duration
+      data:
+        - entity: !input sensor3
+          width: 3
+          joint: curve
+    # Version with two lines
+    - &plot3_2
+      <<: *plot3
+      data:
+        - entity: !input sensor3
+          width: 3
+          joint: curve
+          color: black
+        - entity: !input sensor4
+          width: 1
+          joint: curve
+          color: red
+    # Bottom graph
+    - &frame4
+      <<: *frame
+      x_start: 0
+      y_start: 102
+      x_end: 151
+      y_end: 151
+    - &icon4
+      <<: *icon
+      x: 1
+      "y": 110
+      value: !input field4_icon
+    # Version with one line
+    - &plot4
+      <<: *plot
+      x_start: 34
+      y_start: 103
+      x_end: 149
+      y_end: 150
+      duration: !input field4_duration
+      data:
+        - entity: !input sensor5
+          width: 3
+          joint: curve
+    # Version with two lines
+    - &plot4_2
+      <<: *plot4
+      data:
+        - entity: !input sensor5
+          width: 3
+          joint: curve
+          color: black
+        - entity: !input sensor6
+          width: 1
+          joint: curve
+          color: red
+
+mode: single
+
+action:
+  # Check whether the two graphs have 1 or 2 data sources each
+  # Unfortunately we currently need 4 different code paths for this
+  # Todo: check if the OpenEPaperLink integration's `Plot` payload of the
+  # `drawcustom` service can be made to ignore entities with invalid
+  # sensors.
+  - choose:     
+      - conditions:
+          - condition: and
+            conditions:
+              - "{{ states(sensor4) not in ['unavailable', 'unknown', 'none'] }}"
+              - "{{ states(sensor6)     in ['unavailable', 'unknown', 'none'] }}"
+        alias: Draw tag, top graph with 2 sensors, bottom with 1 sensor
+        sequence:
+          - service: open_epaper_link.drawcustom
+            target: 
+              entity_id: !input tag_entity
+            data:
+              background: white
+              rotate: 0
+              ttl: 300
+              payload:
+                - <<: *frame1
+                - <<: *icon1
+                - <<: *value1
+                - <<: *unit1
+                - <<: *frame2
+                - <<: *icon2
+                - <<: *value2
+                - <<: *unit2
+                - <<: *frame3
+                - <<: *icon3
+                - <<: *plot3_2
+                - <<: *frame4
+                - <<: *icon4
+                - <<: *plot4
+      - conditions:
+          - condition: and
+            conditions:
+              - "{{ states(sensor4)     in ['unavailable', 'unknown', 'none'] }}"
+              - "{{ states(sensor6) not in ['unavailable', 'unknown', 'none'] }}"
+        alias: Draw tag, top graph with 1 sensor, bottom with 2 sensors
+        sequence:
+          - service: open_epaper_link.drawcustom
+            target: 
+              entity_id: !input tag_entity
+            data:
+              background: white
+              rotate: 0
+              ttl: 300
+              payload:
+                - <<: *frame1
+                - <<: *icon1
+                - <<: *value1
+                - <<: *unit1
+                - <<: *frame2
+                - <<: *icon2
+                - <<: *value2
+                - <<: *unit2
+                - <<: *frame3
+                - <<: *icon3
+                - <<: *plot3
+                - <<: *frame4
+                - <<: *icon4
+                - <<: *plot4_2
+      - conditions:
+          - condition: and
+            conditions:
+              - "{{ states(sensor4) not in ['unavailable', 'unknown', 'none'] }}"
+              - "{{ states(sensor6) not in ['unavailable', 'unknown', 'none'] }}"
+        alias: Top and bottom graphs with 2 sensors each
+        sequence:
+          - service: open_epaper_link.drawcustom
+            target: 
+              entity_id: !input tag_entity
+            data:
+              background: white
+              rotate: 0
+              ttl: 300
+              payload:
+                - <<: *frame1
+                - <<: *icon1
+                - <<: *value1
+                - <<: *unit1
+                - <<: *frame2
+                - <<: *icon2
+                - <<: *value2
+                - <<: *unit2
+                - <<: *frame3
+                - <<: *icon3
+                - <<: *plot3_2
+                - <<: *frame4
+                - <<: *icon4
+                - <<: *plot4_2
+    default:
+      - service: open_epaper_link.drawcustom
+        target: 
+          entity_id: !input tag_entity
+        data:
+          background: white
+          rotate: 0
+          ttl: 300
+          payload:
+                - <<: *frame1
+                - <<: *icon1
+                - <<: *value1
+                - <<: *unit1
+                - <<: *frame2
+                - <<: *icon2
+                - <<: *value2
+                - <<: *unit2
+                - <<: *frame3
+                - <<: *icon3
+                - <<: *plot3
+                - <<: *frame4
+                - <<: *icon4
+                - <<: *plot4

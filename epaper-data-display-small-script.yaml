@@ -1,0 +1,302 @@
+# epaper-data-display-small-script.yaml
+# 
+# Home Assistant script for using cheap 1.54" ePaper price tags as data displays
+#
+# Requires Jonas Niesner's OpenEPaperLink integration: https://github.com/jonasniesner/open_epaper_link_homeassistant
+# Currently not very elegant due to limitations of the integration
+#
+
+alias: Display sensor values and history in 1.5 inch E-paper display
+variables:
+  tag_mac: "{{ '0000021A2B3C4E5F' | lower if tag_mac is undefined else tag_mac | lower}}"
+  tag_entity: "{{'open_epaper_link.' + tag_mac}}"
+  field1_icon: "{{'thermometer'}}"
+  field1_sensor: "{{'sensor.temperature_1'}}"
+  field1_warn_above: "32"
+  field1_warn_below: "15"
+  field2_icon: "{{'water-percent'}}"
+  field2_sensor: "{{'sensor.humidity_1'}}"
+  field3_icon: "{{'thermometer'}}"
+  field2_warn_above: "60"
+  field2_warn_below: "0"
+  field3_sensor: "{{'sensor.temperature_1'}}"
+  field3_sensor2: ""
+  field4_icon: "{{'water-percent'}}"
+  field4_sensor: "{{'sensor.humidity_1'}}"
+  field4_sensor2: ""
+  field1_value: "{{states(''''~field1_sensor)}}"
+  field1_unit: "{{state_attr(''''~field1_sensor,'unit_of_measurement')}}"
+  field2_value: "{{states(''''~field2_sensor)}}"
+  field2_unit: "{{state_attr(''''~field2_sensor,'unit_of_measurement')}}"
+  field1_color: >
+    {% if is_number(float(field1_value,"")) and ((is_number(float(field1_warn_above,"")) and (float(field1_value) > float(field1_warn_above))) 
+                                              or (is_number(float(field1_warn_below,"")) and (float(field1_value) < float(field1_warn_below)))) -%}
+    red {%- else -%} black {%- endif %}  
+  field2_color: >
+    {% if is_number(float(field2_value,"")) and ((is_number(float(field2_warn_above,"")) and (float(field2_value) > float(field2_warn_above))) 
+                                              or (is_number(float(field2_warn_below,"")) and (float(field2_value) < float(field2_warn_below)))) -%}
+    red {%- else -%} black {%- endif %}  
+  font_data: /media/IBMPlexSans-Bold.ttf
+  font_unit: /media/IBMPlexSans-Regular.ttf
+  font_legend: /media/IBMPlexSans-Regular.ttf
+  frame_color: white
+  building_blocks:
+    - &frame
+      type: rectangle
+      outline: "{{ frame_color }}"
+      fill: white
+      width: 1
+    - &icon
+      type: icon
+      size: 32
+      color: black
+    - &value
+      type: text
+      font: "{{ font_data }}"
+      size: 24
+      color: black
+      anchor: mm
+    - &unit
+      type: text
+      font: "{{ font_unit }}"
+      y_padding: 14
+      size: 18
+      color: black
+      anchor: mm
+    - &plot
+      type: plot
+      font: "{{ font_legend }}"
+      size: 12
+      ylegend:
+        position: right
+        color: red
+      yaxis: null
+    - &frame1
+      <<: *frame
+      x_start: 0
+      y_start: 0
+      x_end: 75
+      y_end: 49
+    - &icon1
+      <<: *icon
+      color: "{{ field1_color }}"
+      value: "{{ field1_icon }}"
+      x: 1
+      "y": 8
+    - &value1
+      <<: *value
+      color: "{{ field1_color }}"
+      value: "{{ field1_value | string }}"
+      x: 52
+      "y": 14
+    - &unit1
+      <<: *unit
+      color: "{{ field1_color }}"
+      value: "{{ field1_unit | string }}"
+      x: 52
+    - &frame2
+      <<: *frame
+      x_start: 77
+      y_start: 0
+      x_end: 151
+      y_end: 49
+    - &icon2
+      <<: *icon
+      color: "{{ field2_color }}"
+      value: "{{ field2_icon }}"
+      x: 77
+      "y": 8
+    - &value2
+      <<: *value
+      color: "{{ field2_color }}"
+      value: "{{ field2_value | string }}"
+      x: 128
+      "y": 14
+    - &unit2
+      <<: *unit
+      color: "{{ field2_color }}"
+      value: "{{ field2_unit | string }}"
+      x: 128
+    - &frame3
+      <<: *frame
+      x_start: 0
+      y_start: 51
+      x_end: 151
+      y_end: 100
+    - &icon3
+      <<: *icon
+      x: 1
+      "y": 59
+      value: "{{ field3_icon }}"
+    - &plot3
+      <<: *plot
+      x_start: 34
+      y_start: 52
+      x_end: 149
+      y_end: 99
+      data:
+        - entity: "{{ field3_sensor }}"
+          width: 3
+          joint: curve
+    - &plot3_2
+      <<: *plot3
+      data:
+        - entity: "{{ field3_sensor }}"
+          width: 3
+          joint: curve
+          color: black
+        - entity: "{{ field3_sensor2 }}"
+          width: 1
+          joint: curve
+          color: red
+    - &frame4
+      <<: *frame
+      x_start: 0
+      y_start: 102
+      x_end: 151
+      y_end: 151
+    - &icon4
+      <<: *icon
+      x: 1
+      "y": 110
+      value: "{{ field4_icon }}"
+    - &plot4
+      <<: *plot
+      x_start: 34
+      y_start: 103
+      x_end: 149
+      y_end: 150
+      data:
+        - entity: "{{ field4_sensor }}"
+          width: 3
+          joint: curve
+    - &plot4_2
+      <<: *plot4
+      x_start: 34
+      y_start: 103
+      x_end: 149
+      y_end: 150
+      data:
+        - entity: "{{ field4_sensor }}"
+          width: 3
+          joint: curve
+          color: black
+        - entity: "{{ field4_sensor2 }}"
+          width: 1
+          joint: curve
+          color: red
+mode: single
+sequence:
+  # Check whether the two graphs have 1 or 2 data sources each
+  # Unfortunately we currently need 4 different code paths for this
+  - choose:     
+      - conditions:
+          - condition: and
+            conditions:
+              - "{{ states(field3_sensor2) not in ['unavailable', 'unknown', 'none'] }}"
+              - "{{ states(field4_sensor2)     in ['unavailable', 'unknown', 'none'] }}"
+        alias: Draw tag, top graph with 2 sensors, bottom with 1 sensor
+        sequence:
+          - service: open_epaper_link.drawcustom
+            target:
+              entity_id: "{{ tag_entity }}"
+            data:
+              background: white
+              rotate: 0
+              ttl: 300
+              payload:
+                - <<: *frame1
+                - <<: *icon1
+                - <<: *value1
+                - <<: *unit1
+                - <<: *frame2
+                - <<: *icon2
+                - <<: *value2
+                - <<: *unit2
+                - <<: *frame3
+                - <<: *icon3
+                - <<: *plot3_2
+                - <<: *frame4
+                - <<: *icon4
+                - <<: *plot4
+      - conditions:
+          - condition: and
+            conditions:
+              - "{{ states(field3_sensor2)     in ['unavailable', 'unknown', 'none'] }}"
+              - "{{ states(field4_sensor2) not in ['unavailable', 'unknown', 'none'] }}"
+        alias: Draw tag, top graph with 1 sensor, bottom with 2 sensors
+        sequence:
+          - service: open_epaper_link.drawcustom
+            target:
+              entity_id: "{{ tag_entity }}"
+            data:
+              background: white
+              rotate: 0
+              ttl: 300
+              payload:
+                - <<: *frame1
+                - <<: *icon1
+                - <<: *value1
+                - <<: *unit1
+                - <<: *frame2
+                - <<: *icon2
+                - <<: *value2
+                - <<: *unit2
+                - <<: *frame3
+                - <<: *icon3
+                - <<: *plot3
+                - <<: *frame4
+                - <<: *icon4
+                - <<: *plot4_2
+      - conditions:
+          - condition: and
+            conditions:
+              - "{{ states(field3_sensor2) not in ['unavailable', 'unknown', 'none'] }}"
+              - "{{ states(field4_sensor2) not in ['unavailable', 'unknown', 'none'] }}"
+        alias: Top and bottom graphs with 2 sensors each
+        sequence:
+          - service: open_epaper_link.drawcustom
+            target:
+              entity_id: "{{ tag_entity }}"
+            data:
+              background: white
+              rotate: 0
+              ttl: 300
+              payload:
+                - <<: *frame1
+                - <<: *icon1
+                - <<: *value1
+                - <<: *unit1
+                - <<: *frame2
+                - <<: *icon2
+                - <<: *value2
+                - <<: *unit2
+                - <<: *frame3
+                - <<: *icon3
+                - <<: *plot3_2
+                - <<: *frame4
+                - <<: *icon4
+                - <<: *plot4_2
+    default:
+      - service: open_epaper_link.drawcustom
+        target:
+          entity_id: "{{ tag_entity }}"
+        data:
+          background: white
+          rotate: 0
+          ttl: 300
+          payload:
+                - <<: *frame1
+                - <<: *icon1
+                - <<: *value1
+                - <<: *unit1
+                - <<: *frame2
+                - <<: *icon2
+                - <<: *value2
+                - <<: *unit2
+                - <<: *frame3
+                - <<: *icon3
+                - <<: *plot3
+                - <<: *frame4
+                - <<: *icon4
+                - <<: *plot4
