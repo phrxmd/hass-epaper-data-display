@@ -1,10 +1,3 @@
-# epaper-data-display-small-blueprint.yaml
-# 
-# Home Assistant blueprint for automations to us cheap 1.54" ePaper price tags as data displays
-#
-# Requires Jonas Niesner's OpenEPaperLink integration: https://github.com/jonasniesner/open_epaper_link_homeassistant
-# Currently not very elegant due to limitations of the integration
-
 blueprint:
   name: OpenEPaperLink 1.54-inch Sensor Data Display
   description: 'Display sensor data and graphs on 1.54" ePaper display tags.
@@ -43,6 +36,14 @@ blueprint:
         # with a `device_id`. 
         entity:
           multiple: false
+    triggers:
+      name: When to initiate update
+      description: >
+        This will send new data to the access point. Keep in mind that the tags 
+        are refreshed only when they check in with the access point, so it may
+        take some time until the display itself is updated. 
+      selector:
+        trigger:
     sensor1:
       name: Top left - Sensor
       description: Values from this sensor will be displayed at the top left.
@@ -56,7 +57,7 @@ blueprint:
     field1_warn_above:
       name: Top left - Upper warning threshold
       description: Values above this number will be displayed in red.
-      default: 100
+      default: 1000
       selector:
         number:
           min: -100000000000.0
@@ -66,7 +67,7 @@ blueprint:
     field1_warn_below:
       name: Top left - Lower warning threshold
       description: Values below this number will be displayed in red.
-      default: -100
+      default: -1000
       selector:
         number:
           min: -100000000000.0
@@ -86,7 +87,7 @@ blueprint:
     field2_warn_above:
       name: Top right - Upper warning threshold
       description: Values above this number will be displayed in red.
-      default: 100
+      default: 1000
       selector:
         number:
           min: -100000000000.0
@@ -96,7 +97,7 @@ blueprint:
     field2_warn_below:
       name: Top right - Lower warning threshold
       description: Values below this number will be displayed in red.
-      default: -100
+      default: -1000
       selector:
         number:
           min: -100000000000.0
@@ -192,8 +193,7 @@ blueprint:
           mode: dropdown
     
 trigger:
-  - platform: time_pattern
-    minutes: "45"
+  !input triggers
 condition: []
 
 variables:
@@ -236,7 +236,8 @@ variables:
     red
     {%- else -%} 
     black
-    {%- endif %}  
+    {%- endif %}
+  # Building blocks for the various UI components of the display
   building_blocks:
     - &frame
       type: rectangle
@@ -394,9 +395,10 @@ mode: single
 action:
   # Check whether the two graphs have 1 or 2 data sources each
   # Unfortunately we currently need 4 different code paths for this
+  #
   # Todo: check if the OpenEPaperLink integration's `Plot` payload of the
   # `drawcustom` service can be made to ignore entities with invalid
-  # sensors.
+  # sensors, then we can pass just "None" or pass the same entity twice.
   - choose:     
       - conditions:
           - condition: and
